@@ -140,19 +140,41 @@ def imc_page():
     return render_template('imc.html', result=result, doctors_list=doctors_list)
 
 def generate_qr_code(doctor):
-    nom = str(doctor.get('nom', 'Doctor')).strip()
+    # On s'assure de récupérer la valeur, peu importe si la clé est 'nom' ou 'name'
+    nom = str(doctor.get('nom') or doctor.get('name') or 'Doctor').strip()
     tel = str(doctor.get('contact', '')).replace(' ', '').strip()
     adr = str(doctor.get('adresse', '')).strip()
-    vcard = f"BEGIN:VCARD\nVERSION:3.0\nFN:{nom}\nTEL;TYPE=CELL:{tel}\nADR;TYPE=WORK:;;{adr}\nEND:VCARD"
     
+    # Correction de la vCard : Ajout du champ 'N' (indispensable pour certains téléphones)
+    # Format N: NomFamille;Prénom;;;
+    vcard = (
+        "BEGIN:VCARD\n"
+        "VERSION:3.0\n"
+        f"FN:{nom}\n"       # Nom complet affiché
+        f"N:;{nom};;;\n"    # Structure du nom (Prénom)
+        f"TEL;TYPE=CELL:{tel}\n"
+        f"ADR;TYPE=WORK:;;{adr}\n"
+        "END:VCARD"
+    )
+    
+    # Nettoyage du nom de fichier
     clean_filename = "".join(x for x in nom if x.isalnum()) + ".png"
     folder = os.path.join(app.static_folder, "qrcodes")
-    if not os.path.exists(folder): os.makedirs(folder)
+    if not os.path.exists(folder): 
+        os.makedirs(folder)
     
     path = os.path.join(folder, clean_filename)
-    qr = qrcode.QRCode(version=1, box_size=10, border=4)
+    
+    # Génération du QR Code
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_L, # Meilleure compatibilité
+        box_size=10,
+        border=4
+    )
     qr.add_data(vcard)
     qr.make(fit=True)
+    
     img = qr.make_image(fill_color="black", back_color="white")
     img.save(path)
     return clean_filename
