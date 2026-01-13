@@ -52,7 +52,6 @@ def getprecautionDict():
 
 getSeverityDict(); getDescription(); getprecautionDict()
 
-# ------------------ Symptom synonyms ------------------
 symptom_synonyms = {
     "stomach ache":"stomach_pain", "belly pain":"stomach_pain", "tummy pain":"stomach_pain",
     "loose motion":"diarrhea", "motions":"diarrhea",
@@ -60,55 +59,30 @@ symptom_synonyms = {
     "coughing":"cough", "throat pain":"sore_throat",
     "cold":"chills", "breathing issue":"breathlessness", "shortness of breath":"breathlessness",
     "body ache":"muscle_pain", "fatigue":"fatigue", "tired":"fatigue", "exhausted":"fatigue",
-    "thirsty":"polyuria",
-
-    "very thirsty":"polyuria",
-    "excessive_thirst":"polyuria",
-    "hungry":"excessive_hunger",
-    "frequent urination":"frequent_urination",
-    "weight loss":"unexplained_weight_loss",
-    "blurred vision":"blurred_vision",
-    "slow healing":"slow_healing",
-    "frequent infections":"frequent_infections"
+    "thirsty":"polyuria"
 }
 
-# ------------------ Symptom extraction ------------------
+# ------------------ Extraction & Prediction ------------------
 def extract_symptoms(user_input, all_symptoms):
     extracted = []
-
-    # 1️⃣ Nettoyage : minuscules, ponctuation → espace
     text = re.sub(r"[^\w\s]", " ", user_input.lower())
-    text = text.replace("-", " ")
-
-    # 2️⃣ Tokenisation en mots et phrases
     words = text.split()
-
-    # 3️⃣ Vérifier les synonymes et mots exacts
     for phrase, mapped in symptom_synonyms.items():
         if phrase in text and mapped not in extracted:
             extracted.append(mapped)
-
-    # 4️⃣ Vérifier si un mot exact correspond à un symptôme
     for symptom in all_symptoms:
         sym_name = symptom.replace("_", " ")
         if sym_name in text and symptom not in extracted:
             extracted.append(symptom)
-
-    # 5️⃣ Vérifier close match pour les mots individuels
     for word in words:
-        if word in [s.replace("_", " ") for s in extracted]:
-            continue
+        if word in [s.replace("_", " ") for s in extracted]: continue
         close = get_close_matches(word, [s.replace("_", " ") for s in all_symptoms], n=1, cutoff=0.85)
         if close:
             for sym in all_symptoms:
                 if sym.replace("_", " ") == close[0] and sym not in extracted:
                     extracted.append(sym)
-
     return list(set(extracted))
 
-
-
-# ------------------ Prediction ------------------
 def predict_disease(symptoms_list):
     input_vector = np.zeros(len(symptoms_dict))
     for symptom in symptoms_list:
@@ -118,45 +92,21 @@ def predict_disease(symptoms_list):
     pred_class = np.argmax(pred_proba)
     disease = le.inverse_transform([pred_class])[0]
     confidence = round(pred_proba[pred_class]*100,2)
-    return disease, confidence, pred_proba
+    return disease, confidence
 
-quotes = [
-    "🌸 Health is wealth, take care of yourself.",
-    "💪 A healthy outside starts from the inside.",
-    "☀️ Every day is a chance to get stronger and healthier.",
-    "🌿 Take a deep breath, your health matters the most.",
-    "🌺 Remember, self-care is not selfish."
-]
+quotes = ["🌸 Health is wealth.", "💪 A healthy outside starts from the inside.", "🌿 Self-care is not selfish."]
 
-# ------------------ Routes ------------------
+# ------------------ Routes IMC & QR ------------------
+imc_doctors = {
+    "underweight": [{"nom": "Nutritionniste Salsabil Ben Arfa", "adresse": "Mutuelleville, Tunis", "contact": "50 330 220"}],
+    "normal": [],
+    "overweight": [{"nom": "Taieb Ben Alaya Nutritionniste", "adresse": "Rue Habib Chatti, Tunis", "contact": "71 874 755"}],
+    "obese": [{"nom": "Taieb Ben Alaya Nutritionniste", "adresse": "Rue Habib Chatti, Tunis", "contact": "71 874 755"}]
+}
+
 @app.route('/')
 def home():
     return render_template('home.html')
-
-@app.route('/chatbot')
-def chatbot_page():
-    session.clear()
-    session['step'] = 'welcome'
-    return render_template('index.html')
-
-
-# Page IMC
-
-
-# Médecins par catégorie d'IMC
-imc_doctors = {
-    "maigre": [
-        {"nom": "Nutritionniste Salsabil Ben Arfa", "adresse": "Mutuelleville, 22 Rue Oum El Banine, Tunis, Tunisia", "contact": "50 330 220"},
-    ],
-    "normal": [],
-    "surpoids": [
-        {"nom": "Taieb Ben Alaya Nutritionniste -Diététicien", "adresse": "Rue Habib Chatti, Tunis 2092, Tunisie", "contact": "71 874 755"},
-    ],
-    "obese": [
-               {"nom": "Taieb Ben Alaya Nutritionniste -Diététicien", "adresse": "Rue Habib Chatti, Tunis 2092, Tunisie", "contact": "71 874 755"},
-
-    ]
-}
 
 @app.route('/imc', methods=['GET', 'POST'])
 def imc_page():
@@ -165,126 +115,82 @@ def imc_page():
     if request.method == 'POST':
         try:
             poids = float(request.form['poids'])
-            taille = float(request.form['taille']) / 100  # convertir cm → m
-            imc_val = poids / (taille**2)
-
-            # Déterminer la catégorie
-            if imc_val < 18.5:
-                category = "maigre"
-                result = f"Votre IMC est {imc_val:.2f} → Maigre"
-            elif imc_val < 25:
-                category = "normal"
-                result = f"Votre IMC est {imc_val:.2f} → Normal"
-            elif imc_val < 30:
-                category = "surpoids"
-                result = f"Votre IMC est {imc_val:.2f} → Surpoids"
-            else:
-                category = "obese"
-                result = f"Votre IMC est {imc_val:.2f} → Obèse"
-
-            # Récupérer la liste des médecins si disponible
-            doctors_list = imc_doctors.get(category, [])
+            taille = float(request.form['taille'])
             
-            #ajouter
-            for doc in doctors_list:
-                 doc["qr"] = generate_qr_code(doc)
-
-
-        except:
-            result = "Entrée invalide !"
-
+            # --- Controle de saisie Réel ---
+            # Poids entre 2kg et 500kg | Taille entre 50cm et 250cm
+            if not (2 <= poids <= 500) or not (50 <= taille <= 250):
+                result = "Error: Please enter realistic values (Weight: 2-500kg, Height: 50-250cm)."
+            else:
+                taille_m = taille / 100
+                imc_val = poids / (taille_m**2)
+                
+                if imc_val < 18.5: category = "underweight"
+                elif imc_val < 25: category = "normal"
+                elif imc_val < 30: category = "overweight"
+                else: category = "obese"
+                
+                result = f"Your BMI is {imc_val:.2f} ({category.capitalize()})"
+                doctors_list = imc_doctors.get(category, [])
+                for doc in doctors_list:
+                     doc["qr"] = generate_qr_code(doc)
+        except ValueError:
+            result = "Invalid input! Please enter numbers."
+            
     return render_template('imc.html', result=result, doctors_list=doctors_list)
 
 def generate_qr_code(doctor):
-    # 1. Nettoyage strict des données
-    nom = str(doctor.get('nom', 'Medecin')).strip()
+    nom = str(doctor.get('nom', 'Doctor')).strip()
     tel = str(doctor.get('contact', '')).replace(' ', '').strip()
     adr = str(doctor.get('adresse', '')).strip()
-
-    # 2. Format vCard 3.0 avec double champ Nom pour la compatibilité
-    # N:Nom;Prenom;;; est souvent requis par Android
-    # FN:Nom Complet est requis par iOS
-    vcard_content = (
-        "BEGIN:VCARD\n"
-        "VERSION:3.0\n"
-        f"N:;{nom};;;\n"
-        f"FN:{nom}\n"
-        f"TEL;TYPE=CELL:{tel}\n"
-        f"ADR;TYPE=WORK:;;{adr}\n"
-        "END:VCARD"
-    )
-
-    # 3. Création du nom de fichier unique
+    vcard = f"BEGIN:VCARD\nVERSION:3.0\nFN:{nom}\nTEL;TYPE=CELL:{tel}\nADR;TYPE=WORK:;;{adr}\nEND:VCARD"
+    
     clean_filename = "".join(x for x in nom if x.isalnum()) + ".png"
     folder = os.path.join(app.static_folder, "qrcodes")
-    if not os.path.exists(folder):
-        os.makedirs(folder)
+    if not os.path.exists(folder): os.makedirs(folder)
     
     path = os.path.join(folder, clean_filename)
-
-    # 4. Suppression de l'ancien fichier pour forcer la mise à jour
-    if os.path.exists(path):
-        os.remove(path)
-
-    # 5. Génération du QR Code
     qr = qrcode.QRCode(version=1, box_size=10, border=4)
-    qr.add_data(vcard_content)
+    qr.add_data(vcard)
     qr.make(fit=True)
     img = qr.make_image(fill_color="black", back_color="white")
     img.save(path)
-
     return clean_filename
 
+# ------------------ Chatbot Logic (English) ------------------
+@app.route('/chatbot')
+def chatbot_page():
+    session.clear()
+    session['step'] = 'welcome'
+    return render_template('index.html')
 
-# ------------------ Chat logic ------------------
 @app.route('/chat', methods=['POST'])
 def chat():
-    user_msg = request.json['message']
+    user_msg = request.json['message'].strip().lower()
     step = session.get('step', 'welcome')
 
     if step == 'welcome':
         session['step'] = 'name'
-        return jsonify(reply="🤖 Welcome to HealthCare ChatBot!\n👉 What is your name?")
+        return jsonify(reply="🤖 Welcome to HealthCare Chatbot! What is your name?")
+
     elif step == 'name':
-        session['name'] = user_msg
-        session['step'] = 'age'
-        return jsonify(reply="👉 Please enter your age:")
-    elif step == 'age':
-        session['age'] = user_msg
-        session['step'] = 'gender'
-        return jsonify(reply="👉 What is your gender? (M/F):")
-    elif step == 'gender':
-        session['gender'] = user_msg
+        # Name Validation (Letters only, min 2 chars)
+        if not user_msg or not re.match(r"^[a-zA-Z\s]{2,}$", user_msg):
+            return jsonify(reply="❌ Please enter a valid name (letters only, at least 2 characters):")
+        session['name'] = user_msg.capitalize()
         session['step'] = 'symptoms'
-        return jsonify(reply="👉 Describe your symptoms in a sentence:")
+        return jsonify(reply=f"Nice to meet you, {session['name']}. Please describe your symptoms in a sentence:")
+
     elif step == 'symptoms':
         symptoms_list = extract_symptoms(user_msg, cols)
         if not symptoms_list:
-            return jsonify(reply="❌ Could not detect valid symptoms. Please describe again:")
+            return jsonify(reply="❌ I couldn't detect any symptoms. Could you please describe them differently?")
+        
         session['symptoms'] = symptoms_list
-        disease, conf, _ = predict_disease(symptoms_list)
+        disease, _ = predict_disease(symptoms_list)
         session['pred_disease'] = disease
-        session['step'] = 'days'
-        return jsonify(reply=f"✅ Detected symptoms: {', '.join(symptoms_list)}\n👉 For how many days have you had these symptoms?")
-    elif step == 'days':
-        session['days'] = user_msg
-        session['step'] = 'severity'
-        return jsonify(reply="👉 On a scale of 1–10, how severe is your condition?")
-    elif step == 'severity':
-        session['severity'] = user_msg
-        session['step'] = 'preexist'
-        return jsonify(reply="👉 Do you have any pre-existing conditions?")
-    elif step == 'preexist':
-        session['preexist'] = user_msg
-        session['step'] = 'lifestyle'
-        return jsonify(reply="👉 Do you smoke, drink alcohol, or have irregular sleep?")
-    elif step == 'lifestyle':
-        session['lifestyle'] = user_msg
-        session['step'] = 'family'
-        return jsonify(reply="👉 Any family history of similar illness?")
-    elif step == 'family':
-        session['family'] = user_msg
-        disease = session['pred_disease']
+        
+        # Prepare follow-up questions
         disease_symptoms = list(training[training['prognosis'] == disease].iloc[0][:-1].index[
             training[training['prognosis'] == disease].iloc[0][:-1] == 1
         ])
@@ -292,42 +198,45 @@ def chat():
         session['ask_index'] = 0
         session['step'] = 'guided'
         return ask_next_symptom()
+
     elif step == 'guided':
+        # YES/NO Validation
+        if user_msg not in ['yes', 'no', 'y', 'n']:
+            return jsonify(reply="❌ Please answer with 'Yes' or 'No'.")
+
         idx = session['ask_index'] - 1
-        if idx >= 0 and idx < len(session['disease_syms']):
-            if user_msg.strip().lower() == 'yes':
-                symptom = session['disease_syms'][idx]
-                if symptom not in session['symptoms']:
-                    session['symptoms'].append(symptom)
+        if user_msg in ['yes', 'y']:
+            sym = session['disease_syms'][idx]
+            if sym not in session['symptoms']: session['symptoms'].append(sym)
+        
         return ask_next_symptom()
-    elif step == 'final':
-        return final_prediction()
+
+    return jsonify(reply="Session error. Please restart the chat.")
 
 def ask_next_symptom():
     i = session['ask_index']
     ds = session['disease_syms']
-    while i < min(8, len(ds)):
+    while i < len(ds) and i < 8:
         sym = ds[i]
         session['ask_index'] += 1
-        # Skip if already in detected symptoms
         if sym in session['symptoms']:
-            i += 1
-            continue
-        return jsonify(reply=f"👉 Do you also have {sym.replace('_',' ')}? (yes/no):")
+            i += 1; continue
+        return jsonify(reply=f"👉 Do you also experience: **{sym.replace('_',' ')}**? (yes/no)")
+    
     session['step'] = 'final'
     return final_prediction()
 
 def final_prediction():
-    disease, conf, _ = predict_disease(session['symptoms'])
+    disease, conf = predict_disease(session['symptoms'])
     about = description_list.get(disease, 'No description available.')
     precautions = precautionDictionary.get(disease, [])
-    text = (f"                        Result                            \n"
-            f"\n🩺 Based on your answers, you may have **{disease}**\n"
-            f"\n🔎 Confidence: {conf}%\n📖 About: {about}\n")
-    if precautions:
-        text += "\n\n🛡️ Suggested precautions:\n" + "\n\n".join(f"{i+1}. {p}" for i,p in enumerate(precautions))
-    text += "\n\n\n💡 " + random.choice(quotes)
-    text += f"\n\n\nThank you for using the chatbot. Wishing you good health, {session.get('name','User')}!"
+    
+    text = (f"🩺 **Prediction: {disease}** ({conf}% match)\n\n"
+            f"📖 **About:** {about}\n\n"
+            f"🛡️ **Suggested Precautions:**\n" + 
+            "".join(f"- {p}\n" for p in precautions if p.strip()))
+    
+    text += f"\n💡 {random.choice(quotes)}\nStay healthy, {session.get('name')}!"
     return jsonify(reply=text)
 
 if __name__ == "__main__":

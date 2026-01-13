@@ -1,29 +1,30 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Calcul IMC</title>
+    <title>BMI Calculation</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <style>
         body { display: flex; justify-content: center; align-items: center; height: 100vh; background: #e9efff; font-family: Arial, sans-serif; }
         .container { text-align: center; background: white; padding: 40px; border-radius: 20px; box-shadow: 0 0 20px rgba(0,0,0,0.1); width: 380px; }
         h1 { color: #2646d1; margin-bottom: 20px; }
-        input { padding: 8px; width: 80%; margin: 5px 0; border-radius: 6px; border: 1px solid #ccc; }
-        button { padding: 10px 20px; background: #2646d1; color: white; border: none; border-radius: 10px; cursor: pointer; font-size: 16px; margin-top: 10px; }
+        input { padding: 10px; width: 85%; margin: 8px 0; border-radius: 6px; border: 1px solid #ccc; }
+        button { padding: 10px 20px; background: #2646d1; color: white; border: none; border-radius: 10px; cursor: pointer; font-size: 16px; margin-top: 10px; width: 90%; }
         button:hover { background: #1b33a6; }
-        .result { margin-top: 20px; font-weight: bold; }
+        .result { margin-top: 20px; font-weight: bold; color: #333; padding: 10px; background: #f0f4ff; border-radius: 8px; }
     </style>
 </head>
 <body>
 <div class="container">
-    <h1>Calcul de l'IMC</h1>
+    <h1>BMI Calculator</h1>
     <form method="post">
-        <input type="number" name="poids" placeholder="Poids (kg)" step="0.1" required><br>
-        <input type="number" name="taille" placeholder="Taille (cm)" step="0.1" required><br>
-        <button type="submit">Calculer</button>
+        <input type="number" name="poids" placeholder="Weight (kg)" step="0.1" min="2" max="500" required><br>
+        <input type="number" name="taille" placeholder="Height (cm)" step="0.1" min="50" max="250" required><br>
+        <button type="submit">Calculate BMI</button>
     </form>
+    
     <a href="{{ url_for('home') }}">
-        <button type="button" style="background-color: #6c757d; margin-top: 10px;">🏠 Accueil</button>
+        <button type="button" style="background-color: #6c757d; margin-top: 10px;">🏠 Home</button>
     </a>
 
     {% if result %}
@@ -31,44 +32,25 @@
 
         {% if doctors_list %}
             <div class="doctor-info">
-                <h3 style="margin-bottom: 12px;">👨‍⚕️ Médecins recommandés</h3>
+                <h3 style="margin-top: 20px; margin-bottom: 12px;">👨‍⚕️ Recommended Doctors</h3>
 
                 {% for doc in doctors_list %}
-                    <div style="
-                        border: 1px solid #e3e3e3;
-                        border-radius: 10px;
-                        padding: 12px 14px;
-                        margin-bottom: 12px;
-                        background: #fafafa;
-                        box-shadow: 0 2px 6px rgba(0,0,0,.05);
-                        text-align: center;
-                    ">
-                        <p style="margin: 0; font-weight: 600;">
-                            {{ doc.nom }}
-                        </p>
-                        <p style="margin: 6px 0 0;">
-                            📍 <strong>Adresse :</strong> {{ doc.adresse }}
-                        </p>
-                        <p style="margin: 4px 0 10px;">
-                            📞 <strong>Contact :</strong> {{ doc.contact }}
-                        </p>
-                       <!-- <img src="{{ url_for('static', filename='qrcodes/' + doc.qr) }}"
-                             alt="QR Code Médecin"
-                             width="120"
-                             style="margin-top: 10px; border-radius: 10px;">-->
-                             <img src="{{ url_for('static', filename='qrcodes/' + doc.qr) }}?u={{ range(1, 9999) | random }}" 
-                              alt="QR Code Médecin" 
-                              width="120" 
-                              style="margin-top: 10px; border-radius: 10px;">
-                        <p style="font-size: 12px; color: #555;">
-                            📱 Scanner pour voir le contact
-                        </p>
+                    <div style="border: 1px solid #e3e3e3; border-radius: 10px; padding: 12px; margin-bottom: 12px; background: #fafafa; text-align: center;">
+                        <p style="margin: 0; font-weight: 600; color: #2646d1;">{{ doc.nom }}</p>
+                        <p style="margin: 6px 0 0; font-size: 14px;">📍 <strong>Address:</strong> {{ doc.adresse }}</p>
+                        <p style="margin: 4px 0 10px; font-size: 14px;">📞 <strong>Contact:</strong> {{ doc.contact }}</p>
+                        
+                        <img src="{{ url_for('static', filename='qrcodes/' + doc.qr) }}?u={{ range(1, 9999) | random }}" 
+                             alt="Doctor QR Code" 
+                             width="120" 
+                             style="margin-top: 5px; border-radius: 10px; border: 1px solid #ddd;">
+                        
+                        <p style="font-size: 11px; color: #777; margin-top: 5px;">📱 Scan to save contact info</p>
                     </div>
                 {% endfor %}
             </div>
         {% endif %}
     {% endif %}
-
 </div>
 </body>
 </html>

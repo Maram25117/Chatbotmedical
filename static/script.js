@@ -8,10 +8,10 @@ function appendMessage(text, sender) {
   msg.classList.add('message', sender);
 
   if (sender === 'bot') {
-    // text contains HTML (safe-sanitized below)
+  
     msg.innerHTML = text;
   } else {
-    // user text must remain plain text
+   
     msg.textContent = text;
   }
 
@@ -19,11 +19,6 @@ function appendMessage(text, sender) {
   chatBox.scrollTop = chatBox.scrollHeight;
 }
 
-/**
- * sanitizeHTML - light sanitizer: allow only a small whitelist of tags,
- * and strip attributes. This avoids loading external libs while preventing
- * most injection risks.
- */
 function sanitizeHTML(dirty) {
   const parser = new DOMParser();
   const doc = parser.parseFromString(dirty, 'text/html');
